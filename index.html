@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torre del Saber: Niveles Progresivos</title>
+    <style>
+        :root {
+            --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --sec-grad: linear-gradient(135deg, #FF512F 0%, #DD2476 100%);
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-color: #2d3748;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .game-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 700px;
+            overflow: hidden;
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+        }
+
+        h1 { color: #4a5568; margin-bottom: 20px; }
+        h2 { color: #2d3748; font-size: 1.5rem; margin: 20px 0; }
+
+        /* Estilos de botones */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px;
+            display: inline-block;
+            width: 100%;
+            max-width: 250px;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .btn-p { background: linear-gradient(to right, #11998e, #38ef7d); } /* Primaria */
+        .btn-s { background: linear-gradient(to right, #8E2DE2, #4A00E0); } /* Secundaria */
+        
+        /* Grid de opciones */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        @media (max-width: 500px) { .options-grid { grid-template-columns: 1fr; } }
+
+        .btn-opt {
+            background-color: #edf2f7;
+            color: #2d3748;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-opt:hover { background-color: #e2e8f0; border-color: #cbd5e0; }
+        .btn-opt:disabled { opacity: 0.7; cursor: default; }
+
+        /* Barra de progreso y Stats */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            background: #f7fafc;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            color: #718096;
+            margin-bottom: 20px;
+            border: 1px solid #edf2f7;
+        }
+        .level-badge {
+            background: #2b6cb0;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        /* Feedback y Transiciones */
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: #fff;
+            border-left: 5px solid #ccc;
+            text-align: left;
+            display: none;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Timer */
+        .timer-line {
+            height: 6px;
+            background: #ddd;
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: 3px;
+            overflow: hidden;
+            display: none;
+        }
+        .timer-fill {
+            height: 100%;
+            width: 100%;
+            background: #e53e3e;
+            transition: width 1s linear;
+        }
+
+        .screen { display: none; }
+        .active { display: block; }
+
+        /* Nivel completado */
+        .level-up-anim {
+            font-size: 3rem;
+            color: #ecc94b;
+            animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+
+    </style>
+</head>
+<body>
+
+<div class="game-card">
+
+    <div id="screen-menu" class="screen active">
+        <h1>🎓 Torre del Saber</h1>
+        <p>Elige tu camino para empezar la aventura:</p>
+        <button class="btn btn-p" onclick="initGame('primaria')">🎒 Primaria</button>
+        <button class="btn btn-s" onclick="initGame('secundaria')">🚀 Secundaria</button>
+        <p style="font-size: 0.9rem; color: #a0aec0; margin-top: 30px;">Cada nivel es más difícil que el anterior.</p>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="timer-line" id="timer-box"><div class="timer-fill" id="timer-bar"></div></div>
+        
+        <div class="hud">
+            <div>
+                <span id="level-badge" class="level-badge">Nivel 1</span>
+                <span style="margin-left:10px">Pregunta <span id="q-current">1</span>/<span id="q-total">3</span></span>
+            </div>
+            <div>❤️ <span id="lives">3</span></div>
+        </div>
+
+        <h2 id="question-text">¿Pregunta?</h2>
+
+        <div id="options-area" class="options-grid"></div>
+
+        <div id="feedback-area" class="feedback">
+            <h3 id="fb-title" style="margin: 0 0 5px 0;"></h3>
+            <p id="fb-text" style="margin: 0 0 15px 0; color: #555;"></p>
+            <button class="btn" style="background:#2d3748; width:auto; padding: 10px 20px; font-size:1rem;" onclick="nextStep()">Continuar ▶</button>
+        </div>
+    </div>
+
+    <div id="screen-level-up" class="screen">
+        <div class="level-up-anim">⭐</div>
+        <h1 style="color: #38a169;">¡Nivel Completado!</h1>
+        <p>Has superado esta fase.</p>
+        <p><b>Puntuación actual: <span id="score-inter">0</span></b></p>
+        <button class="btn btn-p" onclick="startNextLevel()">Siguiente Nivel ➡️</button>
+    </div>
+
+    <div id="screen-end" class="screen">
+        <h1 id="end-title">Fin del Juego</h1>
+        <p id="end-msg">...</p>
+        <button class="btn btn-s" onclick="location.reload()">🔄 Volver al Inicio</button>
+    </div>
+
+</div>
+
+<script>
+    // --- SONIDOS ---
+    const sfxCorrect = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3');
+    const sfxWrong = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-wrong-answer-fail-notification-946.mp3');
+    const sfxLevelUp = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3');
+
+    // --- BASE DE DATOS ESTRUCTURADA POR NIVELES ---
+    const gameData = {
+        primaria: {
+            // Nivel 1: Sumas y Restas Simples
+            1: [
+                { q: "5 + 5 =", opts: ["10", "15", "8", "12"], a: 0, expl: "5 dedos más 5 dedos son 10." },
+                { q: "10 - 4 =", opts: ["5", "6", "7", "4"], a: 1, expl: "Si tienes 10 y quitas 4, quedan 6." },
+                { q: "8 + 2 =", opts: ["9", "10", "11", "8"], a: 1, expl: "El siguiente número después del 9 es el 10." },
+                { q: "20 + 10 =", opts: ["40", "25", "30", "35"], a: 2, expl: "2 decenas más 1 decena son 3 decenas (30)." },
+                { q: "¿Cuál es mayor?", opts: ["5", "2", "9", "7"], a: 2, expl: "9 es el número más grande de la lista." }
+            ],
+            // Nivel 2: Multiplicación y División
+            2: [
+                { q: "3 x 3 =", opts: ["6", "9", "12", "7"], a: 1, expl: "Tres veces tres es 9." },
+                { q: "10 / 2 =", opts: ["5", "2", "10", "4"], a: 0, expl: "La mitad de 10 es 5." },
+                { q: "4 x 5 =", opts: ["20", "25", "15", "18"], a: 0, expl: "4 grupos de 5 suman 20." },
+                { q: "12 / 4 =", opts: ["2", "4", "3", "6"], a: 2, expl: "Si repartes 12 entre 4, tocan a 3." },
+                { q: "Doble de 6:", opts: ["12", "10", "14", "8"], a: 0, expl: "6 + 6 es 12." }
+            ],
+            // Nivel 3: Fracciones y Lógica
+            3: [
+                { q: "¿Qué es 1/2?", opts: ["Un tercio", "La mitad", "El doble", "Un cuarto"], a: 1, expl: "1 partido en 2 partes iguales." },
+                { q: "Si son las 3:00 y pasan 30 mins...", opts: ["3:30", "4:00", "3:15", "2:30"], a: 0, expl: "Se suma media hora." },
+                { q: "¿Cuántos lados tiene un cubo?", opts: ["4", "6", "8", "10"], a: 1, expl: "Un dado (cubo) tiene 6 caras." },
+                { q: "1/4 + 1/4 =", opts: ["1/8", "2/4 (Mitad)", "1", "3/4"], a: 1, expl: "Un cuarto más un cuarto es media naranja." },
+                { q: "100 cm es igual a...", opts: ["1 km", "10 m", "1 metro", "100 m"], a: 2, expl: "Centi-metro significa cien para hacer uno." }
+            ]
+        },
+        secundaria: {
+            // Nivel 1: Aritmética Avanzada y Signos
+            1: [
+                { q: "-5 + 8 =", opts: ["-3", "3", "13", "-13"], a: 1, expl: "Debes 5, pagas 8, te sobran 3." },
+                { q: "(-2) x (-3) =", opts: ["-6", "6", "5", "-5"], a: 1, expl: "Menos por menos es más." },
+                { q: "3² (al cuadrado) =", opts: ["6", "9", "5", "12"], a: 1, expl: "3 por 3 es 9." },
+                { q: "Jerarquía: 2 + 3 x 4", opts: ["20", "14", "24", "10"], a: 1, expl: "Primero mult: 3x4=12. Luego suma: 2+12=14." },
+                { q: "Resto de 10 / 3", opts: ["1", "2", "3", "0"], a: 0, expl: "3x3=9, sobra 1." }
+            ],
+            // Nivel 2: Álgebra Básica
+            2: [
+                { q: "Si x + 5 = 15, x =", opts: ["10", "20", "5", "0"], a: 0, expl: "15 - 5 = 10." },
+                { q: "2x = 8, x =", opts: ["2", "4", "6", "16"], a: 1, expl: "8 dividido entre 2 es 4." },
+                { q: "Simplifica: 2a + 3a", opts: ["5a", "6a", "5a²", "6a²"], a: 0, expl: "Sumamos coeficientes: 2+3=5." },
+                { q: "Si y = x + 1, y x=2, ¿cuánto vale y?", opts: ["2", "3", "1", "4"], a: 1, expl: "y = 2 + 1 = 3." },
+                { q: "3x - 2 = 10, x =", opts: ["3", "4", "5", "6"], a: 1, expl: "3x = 12 -> x = 4." }
+            ],
+            // Nivel 3: Geometría y Probabilidad
+            3: [
+                { q: "Área triángulo base 4 altura 5", opts: ["20", "10", "9", "40"], a: 1, expl: "(Base x Altura) / 2 -> 20/2 = 10." },
+                { q: "Probabilidad cara en moneda", opts: ["25%", "50%", "100%", "75%"], a: 1, expl: "1 de 2 posibilidades." },
+                { q: "Suma ángulos triángulo", opts: ["180°", "360°", "90°", "270°"], a: 0, expl: "Siempre suman 180 grados." },
+                { q: "Teorema de Pitágoras:", opts: ["a+b=c", "a²+b²=c²", "a*b=c", "a-b=c"], a: 1, expl: "Suma de catetos al cuadrado = hipotenusa al cuadrado." },
+                { q: "Volumen de un cubo de lado 2", opts: ["4", "6", "8", "12"], a: 2, expl: "Lado x Lado x Lado -> 2x2x2=8." }
+            ]
+        }
+    };
+
+    // --- VARIABLES DE ESTADO ---
+    let gameState = {
+        mode: null,      // 'primaria' o 'secundaria'
+        level: 1,        // 1, 2, 3
+        maxLevels: 3,
+        lives: 3,
+        score: 0,
+        queue: [],       // Preguntas del nivel actual
+        qIndex: 0,       // Pregunta actual dentro del nivel
+        timer: null,
+        timeLeft: 0
+    };
+
+    // CONFIGURACIÓN
+    const PREGUNTAS_POR_NIVEL = 3; // Cuántas preguntas debe responder para pasar de nivel
+    const TIEMPO_SECUNDARIA = 15;  // Segundos
+
+    // --- FUNCIONES DEL JUEGO ---
+
+    function initGame(mode) {
+        gameState.mode = mode;
+        gameState.level = 1;
+        gameState.lives = 3;
+        gameState.score = 0;
+        
+        switchScreen('screen-game');
+        startLevel();
+    }
+
+    function startLevel() {
+        // Preparar UI
+        document.getElementById('level-badge').innerText = "Nivel " + gameState.level;
+        document.getElementById('level-badge').style.background = gameState.mode === 'primaria' ? '#11998e' : '#8E2DE2';
+        document.getElementById('timer-box').style.display = gameState.mode === 'secundaria' ? 'block' : 'none';
+
+        // Cargar preguntas del banco
+        const pool = gameData[gameState.mode][gameState.level];
+        // Mezclar y tomar solo X preguntas
+        gameState.queue = shuffle([...pool]).slice(0, PREGUNTAS_POR_NIVEL);
+        gameState.qIndex = 0;
+
+        document.getElementById('q-total').innerText = gameState.queue.length;
+
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        // Verificar si acabó el nivel
+        if (gameState.qIndex >= gameState.queue.length) {
+            levelComplete();
+            return;
+        }
+
+        const qData = gameState.queue[gameState.qIndex];
+        
+        // UI Pregunta
+        document.getElementById('q-current').innerText = gameState.qIndex + 1;
+        document.getElementById('question-text').innerText = qData.q;
+        document.getElementById('feedback-area').style.display = 'none';
+        
+        // Generar Opciones
+        const container = document.getElementById('options-area');
+        container.innerHTML = '';
+        
+        qData.opts.forEach((optText, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-opt';
+            btn.innerText = optText;
+            btn.onclick = () => checkAnswer(idx, btn, qData);
+            container.appendChild(btn);
+        });
+
+        // Timer
+        if (gameState.mode === 'secundaria') startTimer();
+    }
+
+    function checkAnswer(idx, btn, qData) {
+        clearInterval(gameState.timer);
+        const isCorrect = (idx === qData.a);
+        
+        // Deshabilitar botones
+        document.querySelectorAll('.btn-opt').forEach(b => b.disabled = true);
+
+        if (isCorrect) {
+            btn.style.backgroundColor = "#c6f6d5"; // Verde claro
+            btn.style.borderColor = "#48bb78";
+            gameState.score += 100 + (gameState.timeLeft * 5);
+            sfxCorrect.play().catch(e=>{});
+            showFeedback(true, "¡Excelente!", qData.expl);
+        } else {
+            btn.style.backgroundColor = "#fed7d7"; // Rojo claro
+            btn.style.borderColor = "#f56565";
+            gameState.lives--;
+            updateLives();
+            sfxWrong.play().catch(e=>{});
+            showFeedback(false, "Respuesta Incorrecta", qData.expl);
+        }
+    }
+
+    function showFeedback(isSuccess, title, text) {
+        const area = document.getElementById('feedback-area');
+        const tit = document.getElementById('fb-title');
+        const txt = document.getElementById('fb-text');
+        
+        area.style.display = 'block';
+        area.style.borderLeftColor = isSuccess ? "#48bb78" : "#f56565";
+        tit.innerText = title;
+        tit.style.color = isSuccess ? "#2f855a" : "#c53030";
+        txt.innerText = text;
+
+        if (gameState.lives <= 0) {
+            document.querySelector('#feedback-area button').innerText = "Ver Resultado";
+        } else {
+            document.querySelector('#feedback-area button').innerText = "Continuar ▶";
+        }
+    }
+
+    function nextStep() {
+        if (gameState.lives <= 0) {
+            gameOver();
+        } else {
+            gameState.qIndex++;
+            loadQuestion();
+        }
+    }
+
+    function levelComplete() {
+        sfxLevelUp.play().catch(e=>{});
+        if (gameState.level < gameState.maxLevels) {
+            // Pantalla intermedia
+            document.getElementById('score-inter').innerText = gameState.score;
+            switchScreen('screen-level-up');
+        } else {
+            // Ganó el juego completo
+            gameWin();
+        }
+    }
+
+    function startNextLevel() {
+        gameState.level++;
+        switchScreen('screen-game');
+        startLevel();
+    }
+
+    // --- UTILIDADES ---
+    
+    function startTimer() {
+        gameState.timeLeft = TIEMPO_SECUNDARIA;
+        updateTimerBar();
+        clearInterval(gameState.timer);
+        
+        gameState.timer = setInterval(() => {
+            gameState.timeLeft--;
+            updateTimerBar();
+            if (gameState.timeLeft <= 0) {
+                clearInterval(gameState.timer);
+                timeOut();
+            }
+        }, 1000);
+    }
+
+    function updateTimerBar() {
+        const pct = (gameState.timeLeft / TIEMPO_SECUNDARIA) * 100;
+        document.getElementById('timer-bar').style.width = pct + "%";
+    }
+
+    function timeOut() {
+        gameState.lives--;
+        updateLives();
+        sfxWrong.play().catch(e=>{});
+        // Simular fallo
+        document.querySelectorAll('.btn-opt').forEach(b => b.disabled = true);
+        const qData = gameState.queue[gameState.qIndex];
+        showFeedback(false, "⏰ ¡Tiempo Agotado!", qData.expl);
+    }
+
+    function updateLives() {
+        let hearts = "";
+        for(let i=0; i<gameState.lives; i++) hearts += "❤️ ";
+        document.getElementById('lives').innerText = hearts || "💀";
+    }
+
+    function gameOver() {
+        switchScreen('screen-end');
+        document.getElementById('end-title').innerText = "¡Oh no!";
+        document.getElementById('end-title').style.color = "#e53e3e";
+        document.getElementById('end-msg').innerHTML = `Te quedaste sin vidas en el Nivel ${gameState.level}.<br>Puntuación: <b>${gameState.score}</b>`;
+    }
+
+    function gameWin() {
+        switchScreen('screen-end');
+        document.getElementById('end-title').innerText = "¡MAESTRO DE LAS MATEMÁTICAS!";
+        document.getElementById('end-title').style.color = "#38a169";
+        document.getElementById('end-msg').innerHTML = `Completaste todos los niveles.<br>Puntuación Final: <b style="font-size:1.5em">${gameState.score}</b>`;
+    }
+
+    function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+    }
+
+    function switchScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+</script>
+</body>
+</html>
